@@ -131,14 +131,30 @@ def render_settlements(data):
         f"<div class=\"kpi-card\"><div class=\"kpi-label\">Shartnomasiz {esc(l)}</div><div class=\"kpi-value\" style=\"font-size:56px;\">{m} / {c}</div></div>"
         for l, m, c in mc_items[:2]
     )
+    bal = s.get("counterparty_balances", {})
+    top_cps = bal.get("counterparties", [])[:3]
+    cp_rows = "".join(
+        f"<tr><td>{esc(c['counterparty'])}</td>"
+        f"<td style=\"text-align:right;\">{fmt_num(c['receivable'])}</td>"
+        f"<td style=\"text-align:right;\">{fmt_num(c['payable'])}</td></tr>"
+        for c in top_cps
+    )
+    cp_table = (
+        f"""<table style="width:100%; font-size:22px; margin-top:24px; border-collapse:collapse;">
+<tr style="color:var(--muted);"><th style="text-align:left;">Kontragent</th><th style="text-align:right;">Debitor</th><th style="text-align:right;">Kreditor</th></tr>
+{cp_rows}
+</table>"""
+        if cp_rows else ""
+    )
     return f"""<section id="settlements" data-transition="fade">
 <div class="eyebrow">Hisob-kitoblar &amp; xodimlar</div>
-<h2 style="font-size:56px;">Shartnoma va debitor/kreditor (taxminiy)</h2>
+<h2 style="font-size:56px;">Shartnoma va debitor/kreditor (rasmiy qoldiq)</h2>
 <div class="kpi-row" style="margin-top:32px;">
 {cards}
   <div class="kpi-card"><div class="kpi-label">Faol xodim</div><div class="kpi-value" style="font-size:44px;">{esc(top_user)}</div></div>
 </div>
-<p style="font-size:24px; color:var(--muted); margin-top:40px;">Debitor/kreditor qoldig'i hujjat summalaridan TAXMINIY hisoblangan — rasmiy 4010/6010 qoldig'i emas.</p>
+{cp_table}
+<p style="font-size:22px; color:var(--muted); margin-top:24px;">Debitor/kreditor — 4010/6010/4310/6310 hisob-kitob registridagi rasmiy qoldiq (bugungi holat).</p>
 <p class="source">Manba: settlements_check.py, activity_report.py</p>
 </section>
 """

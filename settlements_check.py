@@ -8,11 +8,11 @@ Qamrov:
       tovar/xizmat qabul qilish
   (b) Bank chiqim hujjatlarida "To'lov maqsadi" (НазначениеПлатежа) bo'sh
       qolgan holatlar
-  (c) Kontragentlar bo'yicha debitor/kreditor qoldiqlari — FAQAT hujjat
-      summalari asosida TAXMINIY hisoblanadi (OData orqali standart
-      hisob-kitob registri/Остатки virtual jadvali ochilmagan — rasmiy
-      4010/6010 qoldig'i EMAS). To'lov tizimlari (Uzum, Click, Paynet va h.k.)
-      pul o'tkazish vositachisi sifatida bu jadvaldan chiqarib tashlanadi.
+  (c) Kontragentlar bo'yicha debitor/kreditor qoldiqlari — RASMIY qoldiq,
+      AccountingRegister_Хозрасчетный/Balance virtual jadvalidan (4010, 6010,
+      4310, 6310 schyotlari bo'yicha, ExtDimension1=kontragent orqali
+      guruhlangan). Bu 1C balansidagi rasmiy qoldiqning o'zi — hujjat
+      summalaridan taxminiy hisoblash emas.
 
 Natija: output/settlements_check.json
 """
@@ -36,6 +36,18 @@ BANK_IN = "Document_ПоступлениеНаРасчетныйСчет"
 BANK_OUT = "Document_СписаниеСРасчетногоСчета"
 SALES = "Document_РеализацияТоваровУслуг"
 PURCHASES = "Document_ПоступлениеТоваровУслуг"
+
+REGISTER = "AccountingRegister_Хозрасчетный"
+
+# Settlement accounts to pull official register balances for.
+# (Ref_Key, code, label, side) — side: "receivable" (debitor, Dr=qarz bizga)
+# or "payable" (kreditor, Cr=qarz bizdan).
+SETTLEMENT_ACCOUNTS = [
+    ("6c2ed4ea-1daa-11f0-9923-e8ebd37a8b81", "4010", "Xaridorlar bilan hisob-kitoblar", "receivable"),
+    ("6c2ed573-1daa-11f0-9923-e8ebd37a8b81", "6010", "Yetkazib beruvchilar bilan hisob-kitoblar", "payable"),
+    ("6c2ed4fe-1daa-11f0-9923-e8ebd37a8b81", "4310", "Berilgan avanslar", "receivable"),
+    ("6c2ed58a-1daa-11f0-9923-e8ebd37a8b81", "6310", "Olingan avanslar", "payable"),
+]
 
 
 def contragent_name_from_dynamic_field(client, value, type_str):
@@ -116,67 +128,77 @@ def is_payment_gateway(name):
     return any(kw in low for kw in PAYMENT_GATEWAY_KEYWORDS)
 
 
-def check_counterparty_balances(client, since):
-    """Approximate receivable (sales - bank receipts) / payable (purchases - bank payments)
-    per counterparty, from document sums only. NOT an official 4010/6010 balance."""
-    balances = {}  # name -> {"sales":..,"receipts":..,"purchases":..,"payments":..}
+def check_counterparty_balances(client, since=None):
+    """Official per-counterparty receivable/payable balances, read straight from
+    AccountingRegister_Хозрасчетный/Balance for the key settlement accounts
+    (4010, 6010, 4310, 6310), grouped by ExtDimension1 (kontragent). `since` is
+    accepted for interface symmetry but ignored — a register Balance query
+    with no Period filter returns the current (today's) balance, which is what
+    a debitor/kreditor check needs; a historical cutoff would need Period."""
+    # name -> per-account accumulators + totals
+    per_cp = {}  # name -> {"by_account": {code: {"dr":.., "cr":..}}, "gateway": bool}
 
-    def add(name, field, amount):
-        if not name:
-            return
-        balances.setdefault(name, {"sales": 0.0, "receipts": 0.0, "purchases": 0.0, "payments": 0.0})
-        balances[name][field] += amount or 0.0
+    for ref_key, code, label, side in SETTLEMENT_ACCOUNTS:
+        try:
+            rows = client.query(
+                REGISTER + "/Balance",
+                select=["ExtDimension1", "ExtDimension1_Type", "СуммаBalanceDr", "СуммаBalanceCr"],
+                filter_=f"Account_Key eq guid'{ref_key}'",
+            )
+        except RuntimeError as e:
+            per_cp.setdefault("__errors__", []).append({"account": code, "error": str(e)})
+            continue
+        for r in rows:
+            ext1, ext1_type = r.get("ExtDimension1"), r.get("ExtDimension1_Type") or ""
+            if not ext1 or "Контрагенты" not in ext1_type:
+                continue  # dimension not a counterparty on this account/row
+            name = client.describe_ref("Catalog_Контрагенты", ext1) or ext1
+            entry = per_cp.setdefault(name, {"by_account": {}})
+            acc = entry["by_account"].setdefault(code, {"dr": 0.0, "cr": 0.0, "label": label, "side": side})
+            acc["dr"] += r.get("СуммаBalanceDr") or 0.0
+            acc["cr"] += r.get("СуммаBalanceCr") or 0.0
 
-    sales_rows = client.query(SALES, select=["СуммаДокумента", "Контрагент_Key"],
-                               filter_=f"Date ge {since} and Posted eq true")
-    for r in sales_rows:
-        name = client.describe_ref("Catalog_Контрагенты", r.get("Контрагент_Key"))
-        add(name, "sales", r.get("СуммаДокумента"))
-
-    purchase_rows = client.query(PURCHASES, select=["СуммаДокумента", "Контрагент_Key"],
-                                  filter_=f"Date ge {since} and Posted eq true")
-    for r in purchase_rows:
-        name = client.describe_ref("Catalog_Контрагенты", r.get("Контрагент_Key"))
-        add(name, "purchases", r.get("СуммаДокумента"))
-
-    bank_in_rows = client.query(BANK_IN, select=["СуммаДокумента", "Контрагент", "Контрагент_Type"],
-                                 filter_=f"Date ge {since} and Posted eq true")
-    for r in bank_in_rows:
-        name = contragent_name_from_dynamic_field(client, r.get("Контрагент"), r.get("Контрагент_Type"))
-        add(name, "receipts", r.get("СуммаДокумента"))
-
-    bank_out_rows = client.query(BANK_OUT, select=["СуммаДокумента", "Контрагент", "Контрагент_Type"],
-                                  filter_=f"Date ge {since} and Posted eq true")
-    for r in bank_out_rows:
-        name = contragent_name_from_dynamic_field(client, r.get("Контрагент"), r.get("Контрагент_Type"))
-        add(name, "payments", r.get("СуммаДокумента"))
+    errors = per_cp.pop("__errors__", [])
 
     table = []
     gateway_volume = 0.0
-    for name, v in balances.items():
-        receivable = v["sales"] - v["receipts"]
-        payable = v["purchases"] - v["payments"]
+    for name, entry in per_cp.items():
+        receivable = 0.0  # we are owed (Dr on 4010/4310)
+        payable = 0.0     # we owe (Cr on 6010/6310)
+        by_account_out = {}
+        for code, acc in entry["by_account"].items():
+            by_account_out[code] = {
+                "label": acc["label"],
+                "debit": round(acc["dr"], 2),
+                "credit": round(acc["cr"], 2),
+            }
+            if acc["side"] == "receivable":
+                receivable += acc["dr"] - acc["cr"]
+            else:
+                payable += acc["cr"] - acc["dr"]
+        volume = abs(receivable) + abs(payable)
         if is_payment_gateway(name):
-            gateway_volume += v["receipts"] + v["payments"]
+            gateway_volume += volume
             continue
         if abs(receivable) < 1 and abs(payable) < 1:
             continue
         table.append({
             "counterparty": name,
-            "sales": v["sales"],
-            "receipts": v["receipts"],
-            "purchases": v["purchases"],
-            "payments": v["payments"],
-            "approx_receivable": round(receivable, 2),
-            "approx_payable": round(payable, 2),
+            "by_account": by_account_out,
+            "receivable": round(receivable, 2),
+            "payable": round(payable, 2),
         })
-    table.sort(key=lambda x: -abs(x["approx_receivable"] + x["approx_payable"]))
+    table.sort(key=lambda x: -abs(x["receivable"] + x["payable"]))
 
-    return {
-        "note": "Hujjat summalaridan taxminiy hisoblangan, rasmiy 4010/6010 qoldig'i EMAS (sub-schyot/analitika registri OData orqali ochilmagan).",
+    result = {
+        "note": "Rasmiy qoldiq — 4010/6010/4310/6310 schyotlari bo'yicha hisob-kitob registridan (bugungi holat).",
+        "accounts_checked": [{"code": c, "label": l} for _, c, l, _ in SETTLEMENT_ACCOUNTS],
         "payment_gateway_volume_excluded": round(gateway_volume, 2),
         "counterparties": table[:100],
     }
+    if errors:
+        result["errors"] = errors
+    return result
 
 
 def run(client: ODataClient, lookback_days=LOOKBACK_DAYS):
@@ -186,7 +208,7 @@ def run(client: ODataClient, lookback_days=LOOKBACK_DAYS):
         "lookback_days": lookback_days,
         "missing_contracts": check_missing_contracts(client, since),
         "empty_payment_purpose": check_empty_payment_purpose(client, since),
-        "counterparty_balances_approx": check_counterparty_balances(client, since),
+        "counterparty_balances": check_counterparty_balances(client),
     }
 
 
@@ -201,10 +223,10 @@ def print_summary(report):
     print("To'lov maqsadi bo'sh:")
     for label, sec in report["empty_payment_purpose"].items():
         print(f"  {label}: {sec['empty_purpose_count']}/{sec['checked_count']}")
-    bal = report["counterparty_balances_approx"]
-    print(f"Debitor/kreditor (taxminiy, top {len(bal['counterparties'])} kontragent ko'rsatilgan):")
+    bal = report["counterparty_balances"]
+    print(f"Debitor/kreditor (rasmiy qoldiq, top {len(bal['counterparties'])} kontragent ko'rsatilgan):")
     for c in bal["counterparties"][:10]:
-        print(f"  {c['counterparty']}: debitor≈{c['approx_receivable']:,.0f}  kreditor≈{c['approx_payable']:,.0f}")
+        print(f"  {c['counterparty']}: debitor={c['receivable']:,.0f}  kreditor={c['payable']:,.0f}")
 
 
 def main():

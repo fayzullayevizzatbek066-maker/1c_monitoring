@@ -99,10 +99,10 @@ def settlements_text(report):
     lines.append("To'lov maqsadi bo'sh:")
     for label, sec in report["empty_payment_purpose"].items():
         lines.append(f"  {label}: {sec['empty_purpose_count']}/{sec['checked_count']}")
-    bal = report["counterparty_balances_approx"]
-    lines.append(f"Debitor/kreditor (taxminiy, top {min(10, len(bal['counterparties']))} ko'rsatilgan):")
+    bal = report["counterparty_balances"]
+    lines.append(f"Debitor/kreditor (rasmiy qoldiq, 4010/6010/4310/6310, top {min(10, len(bal['counterparties']))} ko'rsatilgan):")
     for c in bal["counterparties"][:10]:
-        lines.append(f"  {c['counterparty']}: debitor≈{fmt_num(c['approx_receivable'])}  kreditor≈{fmt_num(c['approx_payable'])}")
+        lines.append(f"  {c['counterparty']}: debitor={fmt_num(c['receivable'])}  kreditor={fmt_num(c['payable'])}")
     return "\n".join(lines)
 
 

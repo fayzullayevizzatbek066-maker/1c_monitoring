@@ -25,7 +25,7 @@ ephemeral konteyner bilan birga yo'qolib qolmaydi.
 | `activity_report.py` | "Kim nima qildi" — taxminiy, hujjatdagi "Ответственный" maydoni asosida |
 | `pending_work.py` | "Qolib ketgan ishlar" — provedeniyasiz hujjatlar + yopilmagan oylar |
 | `error_documents.py` | "Xatolik aniqlangan hujjatlar" — provodka flaglari + o'chirishga belgilangan hujjatlar |
-| `settlements_check.py` | Bank to'lov maqsadi, shartnoma ko'rsatilmagan hujjatlar, taxminiy debitor/kreditor |
+| `settlements_check.py` | Bank to'lov maqsadi, shartnoma ko'rsatilmagan hujjatlar, 4010/6010/4310/6310 bo'yicha RASMIY debitor/kreditor qoldig'i |
 | `cash_in_transit_check.py` | 57xx guruhi (jumladan 5720) oylik qoldiq trendi va diagnostikasi |
 | `build_dashboard_data.py` | Barcha tekshiruvlarni ishga tushirib, Dashboard artifact uchun bitta JSON snapshot hosil qiladi |
 
@@ -34,8 +34,10 @@ Har bir skript mustaqil ishga tushadi va natijani `output/*.json` ga yozadi
 
 ## Eslatma
 
-`settlements_check.py`dagi debitor/kreditor qoldig'i hujjat summalaridan
-TAXMINIY hisoblangan — rasmiy 4010/6010 qoldig'i emas, chunki standart
-OData interfeysi hisob-kitob registrining Остатки virtual jadvalini
-ochmaydi. `provodka_check.py` ham yuridik xulosa emas — faqat birlamchi
-skrining.
+`settlements_check.py`dagi debitor/kreditor qoldig'i
+`AccountingRegister_Хозрасчетный/Balance` virtual jadvalidan (4010, 6010,
+4310, 6310 schyotlari, kontragent bo'yicha) o'qiladi — bu RASMIY 1C
+qoldig'i, hujjat summalaridan taxmin emas (to'g'ri OData sintaksisi:
+`EntityName/Balance`, `/Turnovers`, `/BalanceAndTurnovers` — pastki chiziq
+bilan `EntityName_Balance` emas). `provodka_check.py` yuridik xulosa
+emas — faqat birlamchi skrining.

@@ -71,7 +71,10 @@ class ODataClient:
                 params.append("$expand=" + quote(",".join(expand), safe=","))
             if extra_params:
                 params.extend(extra_params)
-            url = f"{self.base_url}/{quote(entity_set, safe='')}?" + "&".join(params)
+            # safe='/' lets entity_set be a virtual-table path like
+            # "AccountingRegister_Хозрасчетный/Balance" (Balance/Turnovers/
+            # BalanceAndTurnovers) without the slash itself being escaped.
+            url = f"{self.base_url}/{quote(entity_set, safe='/')}?" + "&".join(params)
             data = self._get(url)
             page = data.get("value", [])
             rows.extend(page)
