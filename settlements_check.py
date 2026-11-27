@@ -22,7 +22,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient, odata_date, days_ago
+from odata_client import ODataClient, odata_date, days_ago, output_dir
 
 LOOKBACK_DAYS = 180
 EMPTY_GUID = "00000000-0000-0000-0000-000000000000"
@@ -40,13 +40,14 @@ PURCHASES = "Document_ПоступлениеТоваровУслуг"
 REGISTER = "AccountingRegister_Хозрасчетный"
 
 # Settlement accounts to pull official register balances for.
-# (Ref_Key, code, label, side) — side: "receivable" (debitor, Dr=qarz bizga)
-# or "payable" (kreditor, Cr=qarz bizdan).
+# (code, label, side) — side: "receivable" (debitor, Dr=qarz bizga) or
+# "payable" (kreditor, Cr=qarz bizdan). Ref_Key is resolved per-organization
+# via client.account_key(code) — account GUIDs are NOT shared across 1C bases.
 SETTLEMENT_ACCOUNTS = [
-    ("6c2ed4ea-1daa-11f0-9923-e8ebd37a8b81", "4010", "Xaridorlar bilan hisob-kitoblar", "receivable"),
-    ("6c2ed573-1daa-11f0-9923-e8ebd37a8b81", "6010", "Yetkazib beruvchilar bilan hisob-kitoblar", "payable"),
-    ("6c2ed4fe-1daa-11f0-9923-e8ebd37a8b81", "4310", "Berilgan avanslar", "receivable"),
-    ("6c2ed58a-1daa-11f0-9923-e8ebd37a8b81", "6310", "Olingan avanslar", "payable"),
+    ("4010", "Xaridorlar bilan hisob-kitoblar", "receivable"),
+    ("6010", "Yetkazib beruvchilar bilan hisob-kitoblar", "payable"),
+    ("4310", "Berilgan avanslar", "receivable"),
+    ("6310", "Olingan avanslar", "payable"),
 ]
 
 
@@ -138,7 +139,11 @@ def check_counterparty_balances(client, since=None):
     # name -> per-account accumulators + totals
     per_cp = {}  # name -> {"by_account": {code: {"dr":.., "cr":..}}, "gateway": bool}
 
-    for ref_key, code, label, side in SETTLEMENT_ACCOUNTS:
+    for code, label, side in SETTLEMENT_ACCOUNTS:
+        ref_key = client.account_key(code)
+        if not ref_key:
+            per_cp.setdefault("__errors__", []).append({"account": code, "error": f"ChartOfAccounts_Хозрасчетный da Code={code} topilmadi"})
+            continue
         try:
             rows = client.query(
                 REGISTER + "/Balance",
@@ -192,9 +197,10 @@ def check_counterparty_balances(client, since=None):
 
     result = {
         "note": "Rasmiy qoldiq — 4010/6010/4310/6310 schyotlari bo'yicha hisob-kitob registridan (bugungi holat).",
-        "accounts_checked": [{"code": c, "label": l} for _, c, l, _ in SETTLEMENT_ACCOUNTS],
+        "accounts_checked": [{"code": c, "label": l} for c, l, _ in SETTLEMENT_ACCOUNTS],
         "payment_gateway_volume_excluded": round(gateway_volume, 2),
-        "counterparties": table[:100],
+        "total_counterparties_with_balance": len(table),
+        "counterparties": table[:200],
     }
     if errors:
         result["errors"] = errors
@@ -232,8 +238,7 @@ def print_summary(report):
 def main():
     client = ODataClient()
     report = run(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     with open(os.path.join(out_dir, "settlements_check.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print_summary(report)

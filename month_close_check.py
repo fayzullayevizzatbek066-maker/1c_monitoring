@@ -15,7 +15,7 @@ import sys
 import datetime as dt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient, odata_date, month_bounds, iter_months
+from odata_client import ODataClient, odata_date, month_bounds, iter_months, output_dir
 
 LOOKBACK_MONTHS = 12
 
@@ -96,8 +96,7 @@ def print_summary(report):
 def main():
     client = ODataClient()
     report = run(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     with open(os.path.join(out_dir, "month_close_check.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print_summary(report)

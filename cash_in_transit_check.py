@@ -16,7 +16,7 @@ import sys
 import datetime as dt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient, odata_date, days_ago
+from odata_client import ODataClient, odata_date, days_ago, output_dir
 
 LOOKBACK_DAYS = 420  # ~14 months, so a trend break is visible
 ACCOUNT_PREFIX = "57"
@@ -138,8 +138,7 @@ def print_summary(report):
 def main():
     client = ODataClient()
     report = run(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     with open(os.path.join(out_dir, "cash_in_transit_check.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print_summary(report)

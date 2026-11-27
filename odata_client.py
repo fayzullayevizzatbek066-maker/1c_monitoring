@@ -14,7 +14,23 @@ import urllib.error
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
-def load_config(path=CONFIG_PATH):
+def output_dir():
+    """Directory each script writes its output/*.json to. Priority: the
+    OUTPUT_DIR env var (lets several organizations' outputs coexist without
+    overwriting each other — e.g. output_luxyr/), else the default "output"
+    folder next to this file."""
+    d = os.environ.get("OUTPUT_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def load_config(path=None):
+    """Load connection config. Priority: explicit `path` arg, then the
+    ODATA_CONFIG_PATH env var (lets the same scripts run against a different
+    organization's config without code changes — e.g. config_luxyr.json),
+    then the default config.json next to this file."""
+    if path is None:
+        path = os.environ.get("ODATA_CONFIG_PATH", CONFIG_PATH)
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -93,6 +109,21 @@ class ODataClient:
         by_key = {r["Ref_Key"]: r for r in rows if r.get("Ref_Key")}
         self._cache[catalog_name] = by_key
         return by_key
+
+    def account_key(self, code):
+        """Resolve a ChartOfAccounts_Хозрасчетный Ref_Key by its Code (e.g. "4010").
+        IMPORTANT: account Ref_Keys are internal GUIDs generated per-database —
+        the same account code has a DIFFERENT Ref_Key in every 1C organization's
+        own base. Never hardcode a Ref_Key across organizations; always resolve
+        it fresh per client/config via this method. Returns None if not found."""
+        cache = self._cache.setdefault("_account_by_code", {})
+        if code in cache:
+            return cache[code]
+        rows = self.query("ChartOfAccounts_Хозрасчетный", select=["Ref_Key", "Code"],
+                           filter_=f"Code eq '{code}'")
+        key = rows[0]["Ref_Key"] if rows else None
+        cache[code] = key
+        return key
 
     def describe_ref(self, catalog_name, ref_key, field="Description"):
         if not ref_key or ref_key == "00000000-0000-0000-0000-000000000000":

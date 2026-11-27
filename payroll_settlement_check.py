@@ -24,16 +24,16 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient, odata_date, days_ago
+from odata_client import ODataClient, odata_date, days_ago, output_dir
 
 LOOKBACK_DAYS = 365
 REGISTER = "AccountingRegister_Хозрасчетный"
 
-# (Ref_Key, code, label, side) — side: "arrears" (kompaniya xodimga qarzdor, Kt)
-# or "advance" (xodim kompaniyaga qarzdor, Dt)
+# (code, label) — Ref_Key is resolved per-organization via client.account_key(code);
+# account GUIDs are NOT shared across different 1C bases.
 PAYROLL_ACCOUNTS = [
-    ("6c2ed5ad-1daa-11f0-9923-e8ebd37a8b81", "6710", "Ish haqi bo'yicha hisob-kitoblar"),
-    ("6c2ed4f6-1daa-11f0-9923-e8ebd37a8b81", "4210", "Ish haqiga oid berilgan avanslar"),
+    ("6710", "Ish haqi bo'yicha hisob-kitoblar"),
+    ("4210", "Ish haqiga oid berilgan avanslar"),
 ]
 
 PAYROLL_DOC_TYPES = [
@@ -51,7 +51,11 @@ def check_employee_balances(client):
     errors = []
     unidentified = []  # rows where ExtDimension1 is empty/missing — can't tell which employee
     register_anomalies = []  # raw negative Dr/Cr component on a row (unusual for a Balance table)
-    for ref_key, code, label in PAYROLL_ACCOUNTS:
+    for code, label in PAYROLL_ACCOUNTS:
+        ref_key = client.account_key(code)
+        if not ref_key:
+            errors.append({"account": code, "error": f"ChartOfAccounts_Хозрасчетный da Code={code} topilmadi"})
+            continue
         try:
             rows = client.query(
                 REGISTER + "/Balance",
@@ -210,8 +214,7 @@ def print_summary(report):
 def main():
     client = ODataClient()
     report = run(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     with open(os.path.join(out_dir, "payroll_settlement_check.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print_summary(report)

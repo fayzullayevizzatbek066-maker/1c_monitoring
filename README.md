@@ -27,10 +27,36 @@ ephemeral konteyner bilan birga yo'qolib qolmaydi.
 | `error_documents.py` | "Xatolik aniqlangan hujjatlar" — provodka flaglari + o'chirishga belgilangan hujjatlar |
 | `settlements_check.py` | Bank to'lov maqsadi, shartnoma ko'rsatilmagan hujjatlar, 4010/6010/4310/6310 bo'yicha RASMIY debitor/kreditor qoldig'i |
 | `cash_in_transit_check.py` | 57xx guruhi (jumladan 5720) oylik qoldiq trendi va diagnostikasi |
+| `payroll_settlement_check.py` | Xodimlar bo'yicha ish haqi hisob-kitoblari — 6710/4210 bo'yicha RASMIY qoldiq, xatolik flaglari |
 | `build_dashboard_data.py` | Barcha tekshiruvlarni ishga tushirib, Dashboard artifact uchun bitta JSON snapshot hosil qiladi |
 
 Har bir skript mustaqil ishga tushadi va natijani `output/*.json` ga yozadi
 (bu papka ham git'ga commit qilinmaydi — har safar qayta generatsiya qilinadi).
+
+## Bir nechta tashkilot (ko'p baza) bilan ishlash
+
+Barcha skriptlar bitta tashkilotga "qattiq bog'langan" emas — ular
+`config.json`dagi ma'lumotlarga va schyot kodlariga (Code, masalan "4010")
+qarab ishlaydi, GUID'larga emas. **Muhim: har bir 1C bazasida bir xil
+schyot kodi (masalan 4010) boshqacha ichki Ref_Key (GUID) ga ega bo'ladi —
+shuning uchun hisob-kitob va ish haqi tekshiruvlari schyot GUID'ini har
+safar `client.account_key(code)` orqali shu bazadan qayta so'raydi, hech
+qachon boshqa tashkilotdan olingan GUID ishlatilmaydi.**
+
+Boshqa tashkilot uchun alohida config fayl yarating (masalan
+`config_luxyr.json`, bu ham gitignore qilingan) va skriptlarni shu
+muhit o'zgaruvchilari bilan ishga tushiring:
+
+```bash
+ODATA_CONFIG_PATH=/path/to/config_luxyr.json \
+OUTPUT_DIR=/path/to/output_luxyr \
+python3 build_dashboard_data.py
+```
+
+`ODATA_CONFIG_PATH` qaysi tashkilotga ulanishni, `OUTPUT_DIR` esa natija
+qayerga yozilishini belgilaydi — shu tufayli bir nechta tashkilotning
+natijalari bir-birini bosib yubormaydi. Shu ikki o'zgaruvchi bilan
+`render_dashboard_html.py` va `render_slides.py` ham ishlaydi.
 
 ## Eslatma
 

@@ -227,11 +227,13 @@ def render(data):
 
 
 def main():
-    base = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base, "output", "dashboard_data.json"), encoding="utf-8") as f:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from odata_client import output_dir as _output_dir
+    base_out = _output_dir()
+    with open(os.path.join(base_out, "dashboard_data.json"), encoding="utf-8") as f:
         data = json.load(f)
     html_out = render(data)
-    out_path = os.path.join(base, "output", "dashboard_index.html")
+    out_path = os.path.join(base_out, "dashboard_index.html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html_out)
     print(f"Yozildi: {out_path}")

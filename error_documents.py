@@ -12,7 +12,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient
+from odata_client import ODataClient, output_dir
 import check_1c
 import provodka_check
 
@@ -97,8 +97,7 @@ def print_summary(report):
 def main():
     client = ODataClient()
     report = run(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     with open(os.path.join(out_dir, "error_documents.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print_summary(report)

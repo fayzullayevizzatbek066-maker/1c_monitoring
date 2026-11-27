@@ -14,7 +14,7 @@ import sys
 import datetime as dt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from odata_client import ODataClient
+from odata_client import ODataClient, output_dir
 
 import check_1c
 import provodka_check
@@ -48,8 +48,7 @@ def run_all(client: ODataClient):
 def main():
     client = ODataClient()
     data = run_all(client)
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = output_dir()
     out_path = os.path.join(out_dir, "dashboard_data.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
