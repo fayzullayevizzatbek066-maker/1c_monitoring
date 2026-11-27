@@ -122,6 +122,31 @@ def cash_transit_text(report):
     return "\n".join(lines)
 
 
+def payroll_text(report):
+    bal = report["employee_balances"]
+    lines = [
+        f"Jami {bal['total_employees_with_balance']} xodimda qoldiq bor.",
+        f"Kompaniya xodimlarga qarzi: {fmt_num(bal['total_company_owes_employees'])} so'm",
+        f"Xodimlar kompaniyaga qarzi: {fmt_num(bal['total_employees_owe_company'])} so'm",
+    ]
+    if bal["large_arrears_flags"]:
+        lines.append("")
+        lines.append(f"Katta qarzdorlik (top {min(10, len(bal['large_arrears_flags']))}):")
+        for a in bal["large_arrears_flags"][:10]:
+            lines.append(f"  {a['employee']}: {fmt_num(a['amount'])}")
+    if bal["unidentified_employee_balances"] or bal["register_anomalies"]:
+        lines.append("")
+        lines.append("ANIQLANGAN XATOLIKLAR:")
+        for u in bal["unidentified_employee_balances"]:
+            lines.append(f"  ! Xodimi ko'rsatilmagan qoldiq — {u['label']}: Dt={fmt_num(u['debit'])} Kt={fmt_num(u['credit'])}")
+        for a in bal["register_anomalies"]:
+            lines.append(f"  ! Registrda manfiy qiymat — {a['label']}: Dt={fmt_num(a['raw_debit'])} Kt={fmt_num(a['raw_credit'])}")
+    docs = report["payroll_documents"]["totals"]
+    lines.append("")
+    lines.append(f"Ish haqi hujjatlari: {docs['checked']} tekshirildi, {docs['unposted']} provedeniyasiz, {docs['deletion_marked']} o'chirishga belgilangan")
+    return "\n".join(lines)
+
+
 def render(data):
     s = data["sections"]
     c1 = s["1_check_1c"]
@@ -186,6 +211,7 @@ def render(data):
   <div class="dm-section"><h3>Xodimlar faoliyati (taxminiy)</h3><div class="dm-pre">{esc(activity_text(s['4_activity_report']))}</div></div>
   <div class="dm-section"><h3>Yo'ldagi pul mablag'lari (57-guruh hisoblar) — qizil/manfiy qoldiq tekshiruvi</h3><div class="dm-pre">{esc(cash_transit_text(ct))}</div></div>
   <div class="dm-section"><h3>7) Shartnomalar, bank to'lov maqsadi va debitor/kreditorlar</h3><div class="dm-pre">{esc(settlements_text(s['7_settlements_check']))}</div></div>
+  <div class="dm-section"><h3>9) Xodimlar bo'yicha ish haqi hisob-kitoblari</h3><div class="dm-pre">{esc(payroll_text(s['9_payroll_settlement_check']))}</div></div>
 
   <div class="dm-section">
     <h3>Keyingi qadamlar / ochiq savollar</h3>

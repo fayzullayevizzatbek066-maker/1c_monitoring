@@ -24,6 +24,7 @@ import pending_work
 import error_documents
 import settlements_check
 import cash_in_transit_check
+import payroll_settlement_check
 
 
 def run_all(client: ODataClient):
@@ -39,6 +40,7 @@ def run_all(client: ODataClient):
             "6_error_documents": error_documents.run(client),
             "7_settlements_check": settlements_check.run(client),
             "8_cash_in_transit_check": cash_in_transit_check.run(client),
+            "9_payroll_settlement_check": payroll_settlement_check.run(client),
         },
     }
 
