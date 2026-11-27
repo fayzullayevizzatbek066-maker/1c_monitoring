@@ -147,8 +147,25 @@ def payroll_text(report):
     return "\n".join(lines)
 
 
+def fixed_assets_text(report):
+    lines = [
+        f"Asosiy vositalar: boshlang'ich qiymat {fmt_num(report['fixed_assets_cost_total'])} so'm, "
+        f"amortizatsiya {fmt_num(report['fixed_assets_depreciation_total'])} so'm, "
+        f"qoldiq qiymat {fmt_num(report['fixed_assets_net_book_value'])} so'm",
+        f"Materiallar (qoldiq): {fmt_num(report['materials_total'])} so'm",
+        f"Ishlab chiqarish/TIC (2000/2010): {fmt_num(report['wip_total'])} so'm",
+    ]
+    if report["flags"]:
+        lines.append("")
+        lines.append("ANIQLANGAN MUAMMOLAR:")
+        for f in report["flags"]:
+            lines.append(f"  ! [{f['severity']}] {f['note']}")
+    return "\n".join(lines)
+
+
 def render(data):
     s = data["sections"]
+    org = data.get("organization", "")
     c1 = s["1_check_1c"]
     pw = s["5_pending_work"]
     ed = s["6_error_documents"]
@@ -191,7 +208,7 @@ def render(data):
   .dm-foot {{ color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-lg); }}
 </style>
 <div class="dm-wrap">
-  <h1 class="dm-title">1C kunlik monitoring — ALMIRA SR MCHJ</h1>
+  <h1 class="dm-title">1C kunlik monitoring — {esc(org)}</h1>
   <p class="dm-sub">{esc(summary)} (yangilangan: {esc(data['generated_at'])})</p>
 
   <div class="dm-cards">
@@ -212,10 +229,11 @@ def render(data):
   <div class="dm-section"><h3>Yo'ldagi pul mablag'lari (57-guruh hisoblar) — qizil/manfiy qoldiq tekshiruvi</h3><div class="dm-pre">{esc(cash_transit_text(ct))}</div></div>
   <div class="dm-section"><h3>7) Shartnomalar, bank to'lov maqsadi va debitor/kreditorlar</h3><div class="dm-pre">{esc(settlements_text(s['7_settlements_check']))}</div></div>
   <div class="dm-section"><h3>9) Xodimlar bo'yicha ish haqi hisob-kitoblari</h3><div class="dm-pre">{esc(payroll_text(s['9_payroll_settlement_check']))}</div></div>
+  <div class="dm-section"><h3>10) Asosiy vositalar, materiallar va ishlab chiqarish (TIC)</h3><div class="dm-pre">{esc(fixed_assets_text(s['10_fixed_assets_materials_check']))}</div></div>
 
   <div class="dm-section">
     <h3>Keyingi qadamlar / ochiq savollar</h3>
-    <div class="dm-pre">- Bu dashboard hozircha faqat ALMIRA SR MCHJ bazasi uchun shablon sifatida ishlab chiqilgan — natija yaxshi bo'lsa, qolgan 1C bazalariga ham moslashtiriladi.
+    <div class="dm-pre">- Bu shablon avval ALMIRA SR MCHJ uchun ishlab chiqilgan, hozir LUXYR'ga ham moslashtirilgan — qolgan 1C bazalariga ham xuddi shu tarzda ulanadi.
 - Provodka skrining hozircha: qo'lda kiritilgan operatsiyalar, bir xil hisobda debet=kredit, nol summa, g'ayrioddiy dam olish kuni yozuvlarini tekshiradi — bu to'liq qonunchilik muvofiqligi tekshiruvi emas, birlamchi skrining.
 - "Kim nima qildi" bo'limi hujjatdagi "Ответственный" rekvizitiga asoslangan — 1C'ning to'liq foydalanuvchi audit jurnali (Журнал регистрации) standart OData orqali olinmaydi.
 - Debitor/kreditor qoldig'i hujjat summalaridan taxminiy hisoblangan, rasmiy 4010/6010 qoldig'i emas.</div>

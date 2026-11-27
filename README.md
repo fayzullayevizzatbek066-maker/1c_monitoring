@@ -28,6 +28,7 @@ ephemeral konteyner bilan birga yo'qolib qolmaydi.
 | `settlements_check.py` | Bank to'lov maqsadi, shartnoma ko'rsatilmagan hujjatlar, 4010/6010/4310/6310 bo'yicha RASMIY debitor/kreditor qoldig'i |
 | `cash_in_transit_check.py` | 57xx guruhi (jumladan 5720) oylik qoldiq trendi va diagnostikasi |
 | `payroll_settlement_check.py` | Xodimlar bo'yicha ish haqi hisob-kitoblari — 6710/4210 bo'yicha RASMIY qoldiq, xatolik flaglari |
+| `fixed_assets_materials_check.py` | Asosiy vositalar (0100-0290), materiallar (1000-1090/2910) va ishlab chiqarish/TIC (2000/2010) — rasmiy qoldiq va "bazada umuman yo'q" flaglari |
 | `build_dashboard_data.py` | Barcha tekshiruvlarni ishga tushirib, Dashboard artifact uchun bitta JSON snapshot hosil qiladi |
 
 Har bir skript mustaqil ishga tushadi va natijani `output/*.json` ga yozadi

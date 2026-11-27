@@ -36,9 +36,10 @@ def fmt_num(n):
 
 def render_cover(data):
     today = dt.datetime.fromisoformat(data["generated_at"]).strftime("%d.%m.%Y")
+    org = data.get("organization", "")
     return f"""<section id="cover" class="dark-bg" data-transition="fade">
 <div class="eyebrow">1C kunlik monitoring</div>
-<h1 style="font-size:120px; line-height:1.05; max-width:1400px;">ALMIRA SR MCHJ</h1>
+<h1 style="font-size:120px; line-height:1.05; max-width:1400px;">{esc(org)}</h1>
 <p style="font-size:40px; color:#D7DEEF; margin-top:32px; max-width:1300px;">Kunlik hisobot — {esc(today)}</p>
 <p class="source">Manba: 1C OData (Clobus.uz) • Har kuni avtomatik yangilanadi</p>
 </section>
