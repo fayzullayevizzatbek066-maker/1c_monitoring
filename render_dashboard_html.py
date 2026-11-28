@@ -163,6 +163,21 @@ def fixed_assets_text(report):
     return "\n".join(lines)
 
 
+def provodka_scheme_text(report):
+    lines = [f"Jami noodatiy (statistik kam uchraydigan) schyot juftliklari: {report['total_unusual_pairs']}"]
+    if not report["unusual_by_type"]:
+        lines.append("Hech qaysi hujjat turida noodatiy juftlik topilmadi.")
+        return "\n".join(lines)
+    lines.append("")
+    for short, info in report["unusual_by_type"].items():
+        lines.append(f"{info['label']} ({info['type_total']} ta yozuv):")
+        for u in info["unusual_pairs"][:6]:
+            lines.append(f"  Dt{u['dr_group']}xx / Kt{u['cr_group']}xx — {u['count']} marta ({u['share_pct']}%)")
+    lines.append("")
+    lines.append("Eslatma: bu \"xato\" emas — shu tashkilotning odatiy amaliyotidan statistik farq qiluvchi, e'tibor talab qiluvchi yozuvlar.")
+    return "\n".join(lines)
+
+
 def render(data):
     s = data["sections"]
     org = data.get("organization", "")
@@ -230,6 +245,7 @@ def render(data):
   <div class="dm-section"><h3>7) Shartnomalar, bank to'lov maqsadi va debitor/kreditorlar</h3><div class="dm-pre">{esc(settlements_text(s['7_settlements_check']))}</div></div>
   <div class="dm-section"><h3>9) Xodimlar bo'yicha ish haqi hisob-kitoblari</h3><div class="dm-pre">{esc(payroll_text(s['9_payroll_settlement_check']))}</div></div>
   <div class="dm-section"><h3>10) Asosiy vositalar, materiallar va ishlab chiqarish (TIC)</h3><div class="dm-pre">{esc(fixed_assets_text(s['10_fixed_assets_materials_check']))}</div></div>
+  <div class="dm-section"><h3>11) Provodkalar — hujjat turi kesimida statistik anomaliya</h3><div class="dm-pre">{esc(provodka_scheme_text(s['11_provodka_scheme_check']))}</div></div>
 
   <div class="dm-section">
     <h3>Keyingi qadamlar / ochiq savollar</h3>
