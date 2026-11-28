@@ -85,24 +85,44 @@ def run(client):
     total_wip = sum((v["result"] or {}).get("net", 0) for v in wip.values() if v["result"])
     materials_negative = sum((v["result"] or {}).get("negative_items", 0) for v in materials.values() if v["result"])
 
+    is_service_org = getattr(client, "business_type", "construction") == "service"
+
     flags = []
     if not fa_cost_has_data:
-        flags.append({
-            "type": "no_fixed_assets_registered",
-            "severity": "MEDIUM",
-            "note": "0100-0190 (asosiy vositalar) schyotlarida hech qanday qoldiq topilmadi — "
-                    "bazada asosiy vositalar umuman ro'yxatga olinmagan. Qurilish tashkiloti uchun "
-                    "bu texnika/uskunalar ijaraga olinganligini yoki ОС hisobi yuritilmayotganini anglatishi mumkin — tasdiqlash kerak.",
-        })
+        if is_service_org:
+            flags.append({
+                "type": "no_fixed_assets_registered",
+                "severity": "LOW",
+                "note": "0100-0190 (asosiy vositalar) schyotlarida qoldiq topilmadi — bu tashkilot "
+                        "xizmat ko'rsatish (qurilish emas) faoliyati bilan shug'ullanadi, shuning uchun "
+                        "bu kutilgan holat; faqat ma'lum uchun ko'rsatilmoqda.",
+            })
+        else:
+            flags.append({
+                "type": "no_fixed_assets_registered",
+                "severity": "MEDIUM",
+                "note": "0100-0190 (asosiy vositalar) schyotlarida hech qanday qoldiq topilmadi — "
+                        "bazada asosiy vositalar umuman ro'yxatga olinmagan. Qurilish tashkiloti uchun "
+                        "bu texnika/uskunalar ijaraga olinganligini yoki ОС hisobi yuritilmayotganini anglatishi mumkin — tasdiqlash kerak.",
+            })
     if not materials_has_data:
-        flags.append({
-            "type": "no_materials_registered",
-            "severity": "HIGH",
-            "note": "1000-1090 / 2910 (materiallar) schyotlarida hech qanday qoldiq topilmadi — "
-                    "bazada materiallar hisobi yuritilmayapti. Qurilish tashkiloti uchun bu jiddiy "
-                    "to'liqlik muammosi: materiallar to'g'ridan-to'g'ri xarajatga yozilayotganmi yoki "
-                    "boshqa bazada/qog'ozda yuritilayotganmi — tekshirish zarur.",
-        })
+        if is_service_org:
+            flags.append({
+                "type": "no_materials_registered",
+                "severity": "LOW",
+                "note": "1000-1090 / 2910 (materiallar) schyotlarida qoldiq topilmadi — bu tashkilot "
+                        "xizmat ko'rsatish faoliyati bilan shug'ullanadi (materiallar sotish/qurilish emas), "
+                        "shuning uchun bu kutilgan holat.",
+            })
+        else:
+            flags.append({
+                "type": "no_materials_registered",
+                "severity": "HIGH",
+                "note": "1000-1090 / 2910 (materiallar) schyotlarida hech qanday qoldiq topilmadi — "
+                        "bazada materiallar hisobi yuritilmayapti. Qurilish tashkiloti uchun bu jiddiy "
+                        "to'liqlik muammosi: materiallar to'g'ridan-to'g'ri xarajatga yozilayotganmi yoki "
+                        "boshqa bazada/qog'ozda yuritilayotganmi — tekshirish zarur.",
+            })
     if materials_negative:
         flags.append({
             "type": "negative_material_balance",
@@ -112,13 +132,21 @@ def run(client):
                     "miqdorda chiqim qilingan bo'lishi mumkin.",
         })
     if not wip_has_data:
-        flags.append({
-            "type": "no_wip_registered",
-            "severity": "MEDIUM",
-            "note": "2000/2010 (ishlab chiqarish/TIC) schyotlarida qoldiq topilmadi — qurilish "
-                    "tashkiloti uchun odatiy emas; buyurtmachi obyektlari bo'yicha xarajatlar boshqa "
-                    "usulda (masalan to'g'ridan-to'g'ri xarajat sifatida) yuritilayotgan bo'lishi mumkin.",
-        })
+        if is_service_org:
+            flags.append({
+                "type": "no_wip_registered",
+                "severity": "LOW",
+                "note": "2000/2010 (ishlab chiqarish/TIC) schyotlarida qoldiq topilmadi — bu tashkilot "
+                        "xizmat ko'rsatish faoliyati bilan shug'ullanadi, shuning uchun bu kutilgan holat.",
+            })
+        else:
+            flags.append({
+                "type": "no_wip_registered",
+                "severity": "MEDIUM",
+                "note": "2000/2010 (ishlab chiqarish/TIC) schyotlarida qoldiq topilmadi — qurilish "
+                        "tashkiloti uchun odatiy emas; buyurtmachi obyektlari bo'yicha xarajatlar boshqa "
+                        "usulda (masalan to'g'ridan-to'g'ri xarajat sifatida) yuritilayotgan bo'lishi mumkin.",
+            })
 
     return {
         "organization": client.org_name,

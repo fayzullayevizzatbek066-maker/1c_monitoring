@@ -44,6 +44,11 @@ class ODataClient:
         self.user = self.config["odata_user"]
         self.password = self.config["odata_password"]
         self.org_name = self.config.get("organization_name", "")
+        # "construction" (default) or "service" — e.g. ALMIRA SR provides psychological
+        # training/education services, not construction, so checks that assume a
+        # construction company (materials, fixed assets, WIP accounts normally in use)
+        # must not flag an empty balance there as a HIGH-severity gap.
+        self.business_type = self.config.get("business_type", "construction")
         self._auth_header = self._basic_auth_header(self.user, self.password)
         self._cache = {}
 
